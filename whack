@@ -83,11 +83,11 @@ else:
     # ----------------------------------------------------------------------
     pscale = 16.7
     wvl = 1.6
-    from xaosim.scexao_shm import shm
-    cam = shm('/tmp/ircam1.im.shm',      verbose=False)
-    drk = shm('/tmp/ircam1_dark.im.shm', verbose=False)
-    dmc = shm('/tmp/dm00disp04.im.shm',  verbose=False)
-    dmcc = dmc.copy()
+    from xaosim.scexao_shmlib import shm
+    cam  = shm('/tmp/ircam1.im.shm',      verbose=False)
+    drk  = shm('/tmp/ircam1_dark.im.shm', verbose=False)
+    dmc  = shm('/tmp/dm00disp04.im.shm',  verbose=False)
+    dmcc = shm('/tmp/dm00disp05.im.shm',  verbose=False)
     # ----------------------------------------------------------------------
 
 dms        = 50   # DM size
@@ -764,6 +764,9 @@ class MyWindow(QtGui.QMainWindow):
         ''' --------------------------------------------------
         Callback connected to the "Dark" button.
         -------------------------------------------------- '''
+        self.bias = drk.get_data(False, True).transpose()
+        pass
+        '''
         self.etime = cam_get_etime()
         if self.etime == -1:
             time.sleep(2)
@@ -776,7 +779,7 @@ class MyWindow(QtGui.QMainWindow):
             self.bias = np.zeros((ysz, xsz)).astype('float32')
         self.log("Updated dark", "blue")
         self.log("exp.time = %d us" % (self.etime,), "blue")
-
+        '''
     # =========================================================
     def close_loop(self):
         ''' --------------------------------------------------
