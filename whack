@@ -84,8 +84,8 @@ else:
     pscale = 16.7
     wvl = 1.6
     from xaosim.scexao_shmlib import shm
-    cam  = shm('/tmp/ircam1.im.shm',      verbose=False)
-    drk  = shm('/tmp/ircam1_dark.im.shm', verbose=False)
+    cam  = shm('/tmp/ircam1_clean.im.shm', verbose=False)
+    #drk  = shm('/tmp/ircam1_dark.im.shm', verbose=False)
     dmc  = shm('/tmp/dm00disp06.im.shm',  verbose=False)
     dmcc = shm('/tmp/dm00disp07.im.shm',  verbose=False)
     # ----------------------------------------------------------------------
@@ -94,7 +94,7 @@ dms        = 50   # DM size
 tdiam      = 7.92 # Telescope diameter (in meters)
 NSS        = 206.265 * wvl / tdiam / pscale # Nyquist-Shannon sampling
 
-sz         = 256
+sz         = 150
 dz         = sz/2
 
 index      = cam.get_counter()
@@ -192,7 +192,7 @@ class MyWindow(QtGui.QMainWindow):
         self.pixmap = QtGui.QPixmap(conf_dir + 'Rambo.png')
         self.lbl_pixmap.setPixmap(self.pixmap)
 
-        self.pwr = 0.2 # default: non-linear display
+        self.pwr = 0.5 # default: non-linear display
         self.abort_flag = False # generic abort flag
 
         self.plot_nature = "SCATTER"
@@ -217,7 +217,7 @@ class MyWindow(QtGui.QMainWindow):
 
         self.imv_img = pg.ImageItem()
         self.gView_ROI.addItem(self.imv_img)
-        self.data_img = cam.get_data(False, True) - self.bias
+        self.data_img = cam.get_data(False, True) #- self.bias
         self.data_roi = (self.data_img * self.ROI)[dysz:dysz+sz,dxsz:dxsz+sz]
         self.refresh_img()
 
@@ -236,9 +236,10 @@ class MyWindow(QtGui.QMainWindow):
             exec 'self.spmod%d = %s' % (i, empty_splot)
             exec 'self.spmod%d.clear()' % (i,)
         #elf.scatter = self.gView_graph_log.plot([0,0], [0,0], pen=None, symbol="o")
-        self.scatter = self.gView_graph_log.plot([0,0], [0,0], symbol="o", pen=None, pxMode=False)
+        self.scatter = self.gView_graph_log.plot([0,0], [0,0], symbol="o", 
+                                                 pen=None, pxMode=False)
         self.lineplot = self.gView_graph_log.plot([0,0], [0,0])
-        self.gView_graph_log.setRange(None, [0,256], [0,256], update=False)
+        self.gView_graph_log.setRange(None, [0,sz], [0,sz], update=False)
 
         # ==============================================
         # top-menu actions
@@ -344,7 +345,7 @@ class MyWindow(QtGui.QMainWindow):
     def load_dm_map(self):
         fname = QtGui.QFileDialog.getOpenFileName(self, 'Load DM map', 
                                                   home+'/conf/dm_patterns/')
-        dmc.set_data(pf.getdata(str(fname)).astype('float32'))
+        dmcc.set_data(pf.getdata(str(fname)).astype('float32'))
         short_name = str(fname).split('/')[-1]
         self.log("Applying \"%s\" to DM" % (short_name,), "orange")
 
@@ -353,7 +354,7 @@ class MyWindow(QtGui.QMainWindow):
         fname = str(QtGui.QFileDialog.getSaveFileName(self, 'Save DM map', 
                                                       home+'/conf/dm_patterns/'))
         if fname != "":
-            pf.writeto(fname, dmc.get_data())
+            pf.writeto(fname, dmcc.get_data(), overwrite=True)
         short_name = str(fname).split('/')[-1]
         self.log("Saving DM shape to \"%s\"" % (short_name,), "green")
 
@@ -651,7 +652,7 @@ class MyWindow(QtGui.QMainWindow):
     def refresh_img(self):
         self.pwr = 1.0
         if self.chB_nonlinear.isChecked():
-            self.pwr = 0.3
+            self.pwr = 0.5
         else:
             self.pwr = 1.0
         self.imv_img.setImage(arr2im(self.data_roi.T, pwr=self.pwr,
@@ -675,7 +676,7 @@ class MyWindow(QtGui.QMainWindow):
         global index
 
         # ---  the camera image  ---
-        self.data_img = cam.get_data(False, True) - self.bias
+        self.data_img = cam.get_data(False, True) #- self.bias
         self.data_roi = (self.data_img * self.ROI)[dysz:dysz+sz,dxsz:dxsz+sz]
         self.refresh_img()
         
@@ -689,14 +690,15 @@ class MyWindow(QtGui.QMainWindow):
 
         # refresh the graphical residul log plot
         if self.plot_nature == "SCATTER":
-            self.gView_graph_log.setRange(None, [0,256], [0,256], update=False)
-            self.scatter.setData(self.plot_data_x, self.plot_data_y)
+            self.gView_graph_log.setRange(None, [0,sz], [0,sz], update=False)
+            self.scatter.setData(self.plot_data_x, self.plot_data_y, symbolSize=5)
             self.gView_graph_log.showGrid(True, True)
             self.gView_graph_log.setAspectLocked(True, 1)
             # keep flag to True until another 
 
         elif self.plot_nature == "CURVE":
-            self.scatter.setData([0,0], [0,0])
+            tmpx, tmpy = self.plot_data_x[0], self.plot_data_y[0]
+            self.scatter.setData([tmpx, tmpx], [tmpy,tmpy], symbolSize=0)
             self.lineplot.setData(self.plot_data_x, self.plot_data_y)
             self.gView_graph_log.showGrid(True, True)
             self.gView_graph_log.setAspectLocked(False, 1)
@@ -747,7 +749,7 @@ class MyWindow(QtGui.QMainWindow):
                          orad = self.spB_ROI_orad.value(),
                          ori  = orientation)
 
-        self.roibias = (self.ROI * self.bias)[dysz:dysz+sz,dxsz:dxsz+sz]
+        #self.roibias = (self.ROI * self.bias)[dysz:dysz+sz,dxsz:dxsz+sz]
         #self.log("ROI updated", "blue")
 
 
@@ -765,7 +767,7 @@ class MyWindow(QtGui.QMainWindow):
         ''' --------------------------------------------------
         Callback connected to the "Dark" button.
         -------------------------------------------------- '''
-        self.bias = drk.get_data(False, True)
+        #self.bias = drk.get_data(False, True)
         pass
         '''
         self.etime = cam_get_etime()
@@ -803,7 +805,7 @@ class MyWindow(QtGui.QMainWindow):
         self.pB_recal.setEnabled(False)'''
 
         while not self.abort_flag:
-            self.iteration(delay=0.1)#1e-6*self.etime)#0.01)
+            self.iteration(delay=0.0)
 
         '''self.action_select_LWE.setEnabled(True)
         self.action_select_ZER.setEnabled(True)
@@ -826,8 +828,8 @@ class MyWindow(QtGui.QMainWindow):
         -------------------------------------------------- '''
         nsamp   = myqt.gui_call(self.spB_nsamp.value,)
         nav     = 5 # number of frames to average to find speckles
-        ref0    = self.coadd_acquisitions(nav, True)               # ref. image        
-        ref0   -= self.roibias
+        ref0    = self.coadd_acquisitions(nav, True)               # ref. image
+        #ref0   -= self.roibias
 
         pf.writeto(conf_dir+'reference.fits', ref0, overwrite=True)
         (spx, spy, spi) = locate_speckles(ref0, self.nspk, nbit=0) # find them
@@ -862,7 +864,6 @@ class MyWindow(QtGui.QMainWindow):
                                                       np.max(stats))
         self.log(msg, "blue")
         #time.sleep(delay)
-
         # updating list of speckles to track
         # self.updt_target_list(ref0)
     
