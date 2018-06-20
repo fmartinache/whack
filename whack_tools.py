@@ -133,13 +133,15 @@ def locate_speckles(img, nspk=1, xr=5.0, nbit=20):
         if nbit == 0:
             (x11, y11) = (x1, y1)
             m11 = m1
+            m22 = mkdisk((xs, ys), (x1, y1), xr/2.)
             mfilt *= (1.0-m1)
         else:
             (x11, y11) = find_psf_center((m1) * mfilt, False, nbit)
             m11 = mkdisk((xs, ys), (x11, y11), xr)
+            m22 = mkdisk((xs, ys), (x11, y11), xr/2.)
             mfilt *= (1.0 - m11)
 
-        intens = np.mean(img[m11 > 0])
+        intens = np.mean(img[m22 > 0])
 
         # increment counter of speckles
         spx.append(x11)

@@ -25,7 +25,7 @@ yet. Can do recenter(), pix2spf() but haven't done the closed loop yet.
 --------------------------------------------------------------------------
 
 '''
-
+import pdb
 from QtMain import QtMain, QApplication
 from PyQt4 import QtCore, QtGui, uic
 from PyQt4.QtCore import QThread
@@ -86,8 +86,8 @@ else:
     from xaosim.scexao_shmlib import shm
     cam  = shm('/tmp/ircam1.im.shm',      verbose=False)
     drk  = shm('/tmp/ircam1_dark.im.shm', verbose=False)
-    dmc  = shm('/tmp/dm00disp04.im.shm',  verbose=False)
-    dmcc = shm('/tmp/dm00disp05.im.shm',  verbose=False)
+    dmc  = shm('/tmp/dm00disp06.im.shm',  verbose=False)
+    dmcc = shm('/tmp/dm00disp07.im.shm',  verbose=False)
     # ----------------------------------------------------------------------
 
 dms        = 50   # DM size
@@ -747,6 +747,7 @@ class MyWindow(QtGui.QMainWindow):
                          orad = self.spB_ROI_orad.value(),
                          ori  = orientation)
 
+        self.roibias = (self.ROI * self.bias)[dysz:dysz+sz,dxsz:dxsz+sz]
         #self.log("ROI updated", "blue")
 
 
@@ -764,7 +765,7 @@ class MyWindow(QtGui.QMainWindow):
         ''' --------------------------------------------------
         Callback connected to the "Dark" button.
         -------------------------------------------------- '''
-        self.bias = drk.get_data(False, True).transpose()
+        self.bias = drk.get_data(False, True)
         pass
         '''
         self.etime = cam_get_etime()
@@ -825,7 +826,10 @@ class MyWindow(QtGui.QMainWindow):
         -------------------------------------------------- '''
         nsamp   = myqt.gui_call(self.spB_nsamp.value,)
         nav     = 5 # number of frames to average to find speckles
-        ref0    = self.coadd_acquisitions(nav, True)               # ref. image
+        ref0    = self.coadd_acquisitions(nav, True)               # ref. image        
+        ref0   -= self.roibias
+
+        pf.writeto(conf_dir+'reference.fits', ref0, overwrite=True)
         (spx, spy, spi) = locate_speckles(ref0, self.nspk, nbit=0) # find them
 
         stats   = [] # empty list for correction amplitudes
@@ -835,9 +839,11 @@ class MyWindow(QtGui.QMainWindow):
         sky = np.array(sky)[0]
         spa = self.spi2amp(spi)
 
+        print(">> ", skx, sky, spi, spa)
+
         shape = np.zeros_like(erase_map)
         probe_cube = self.probe_ROI(kx=skx, ky=sky, spa=spa*1e-3,
-                                    ref=ref0*0.0, nav=nav)
+                                    ref=ref0, nav=nav)
 
         for ii in range(self.nspk):
             inten = track_speckle_intensity(probe_cube, spx[ii], spy[ii])
@@ -847,8 +853,8 @@ class MyWindow(QtGui.QMainWindow):
                                       spk_phi + np.pi)
 
             stats.append(spk_amp)
-            #print("modulation=%.2f nm -> phase=%+.2f rad, ampli=%.2f nm" % 
-            #      (spa[ii], spk_phi, spk_amp))
+            print("modulation=%.2f nm -> phase=%+.2f rad, ampli=%.2f nm" % 
+                  (spa[ii], spk_phi, spk_amp))
 
         self.add_shape_2_DM(shape * 1e-3, dmch=dmcc)
         msg = "null: ave=%.2f, std=%.2f, max=%.2f" % (np.mean(stats),
