@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 
 '''--------------------------------------------------------------------------
+20180623:
+--------
+Software was requalified on SCExAO. Seems to work rather well and converges
+fairly rapidly. Overall, a good upgrade that is one step closer to real-time
+speckle control. Future improvement will include:
+- more efficient speckle location (locate_speckles in whack_tools)
+- parallelized speckle solution computing
+
 20180503:
 --------
 Haven't kept up with this log. The software has been operational for a while
@@ -84,7 +92,7 @@ else:
     pscale = 16.7
     wvl = 1.6
     from xaosim.scexao_shmlib import shm
-    cam  = shm('/tmp/ircam1_clean.im.shm', verbose=False)
+    cam  = shm('/tmp/ircam0_clean.im.shm', verbose=False)
     #drk  = shm('/tmp/ircam1_dark.im.shm', verbose=False)
     dmc  = shm('/tmp/dm00disp06.im.shm',  verbose=False)
     dmcc = shm('/tmp/dm00disp07.im.shm',  verbose=False)
@@ -200,9 +208,23 @@ class MyWindow(QtGui.QMainWindow):
         self.plot_data_y = np.zeros(10)
         
         # ---------- speckle metrology information ---------
-        self.orix, self.oriy = sz/2, sz/2 #sz/2+4, sz/2 - 6 # deliberately OFF!!
-        self.SPF2PIX = np.array([[208.190, 0.024],
-                                 [-0.049, 208.181]])
+        try:
+            temp = np.loadtxt(conf_dir+"ORIGIN.txt")
+            self.orix = temp[0]
+            self.oriy = temp[1]
+            self.log("ORIGIN pre-loaded", "blue")
+        except:
+            self.orix, self.oriy = sz/2, sz/2
+            self.log("No pre-loaded ORIGIN available", "orange")
+
+        try:
+            self.SPF2PIX = np.loadtxt(conf_dir+"SPF2PIX.txt")
+            self.log("PIX2SPF matrix pre-loaded", "blue")
+
+        except:
+            self.SPF2PIX = np.array([[117.568, 0.220],
+                                     [ -0.567, 115.321]])
+            self.log("No pre-loaded matrix available", "orange")
         self.PIX2SPF = np.matrix(self.SPF2PIX).I
         
         # ==============================================
@@ -445,7 +467,9 @@ class MyWindow(QtGui.QMainWindow):
         self.log("[%+08.3f, %+08.3f]<br>[%+08.3f, %+08.3f]" % (
             self.SPF2PIX[0,0], self.SPF2PIX[0,1],
             self.SPF2PIX[1,0], self.SPF2PIX[1,1]))
-
+        
+        np.savetxt(conf_dir+"SPF2PIX.txt", self.SPF2PIX)
+        self.log("PIX2SPF matrix saved", "blue")
         # reset orientation to what it was before?
         myqt.gui_call(self.cmB_ROI_orientation.setCurrentIndex, memo)
 
@@ -481,6 +505,9 @@ class MyWindow(QtGui.QMainWindow):
         dmc.set_data(erase_map)
         self.log("Origin: %.2f, %.2f" % (self.orix, self.oriy), "green")
         myqt.gui_call(self.cmB_ROI_orientation.setCurrentIndex, memo)
+
+        np.savetxt(conf_dir+"ORIGIN.txt", (self.orix, self.oriy))
+        self.log("ORIGIN coordinates saved", "blue")
         self.update_ROI()
 
     # =========================================================
@@ -533,7 +560,7 @@ class MyWindow(QtGui.QMainWindow):
 
             self.set_shape_2_DM(shape) # apply the shape to the DM
 
-            time.sleep(0.1)
+            time.sleep(0.01)
 
             myim = self.coadd_acquisitions(nav, True)
             res[ii] = myim - ref0
