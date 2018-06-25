@@ -66,10 +66,6 @@ conf_dir = home+'/.config/fpao/whack/'
 if not os.path.exists(conf_dir):
     os.makedirs(conf_dir)
 
-def cam_get_etime():
-    etime = int(cam.get_expt())
-    return(etime)
-
 if simulation:
     # ----------------------------------------------------------------------
     #                           SIMULATED EXPERIMENT
@@ -81,10 +77,6 @@ if simulation:
     dmc = shm('/tmp/dmdisp4.im.shm') # probing
     dmcc = shm('/tmp/dmdisp5.im.shm') # correction
 
-    def cam_get_etime():
-        ''' Fake camera call for simulation'''
-        return(1000)
-
 else:
     # ----------------------------------------------------------------------
     #                             THE REAL DEAL
@@ -93,7 +85,6 @@ else:
     wvl = 1.6
     from xaosim.scexao_shmlib import shm
     cam  = shm('/tmp/ircam0_clean.im.shm', verbose=False)
-    #drk  = shm('/tmp/ircam1_dark.im.shm', verbose=False)
     dmc  = shm('/tmp/dm00disp06.im.shm',  verbose=False)
     dmcc = shm('/tmp/dm00disp07.im.shm',  verbose=False)
     # ----------------------------------------------------------------------
@@ -102,7 +93,7 @@ dms        = 50   # DM size
 tdiam      = 7.92 # Telescope diameter (in meters)
 NSS        = 206.265 * wvl / tdiam / pscale # Nyquist-Shannon sampling
 
-sz         = 150
+sz         = 128
 dz         = sz/2
 
 index      = cam.get_counter()
@@ -208,6 +199,7 @@ class MyWindow(QtGui.QMainWindow):
         self.plot_data_y = np.zeros(10)
         
         # ---------- speckle metrology information ---------
+        self.logfile = open(conf_dir + "log_whack.log", "a")
         try:
             temp = np.loadtxt(conf_dir+"ORIGIN.txt")
             self.orix = temp[0]
@@ -226,11 +218,10 @@ class MyWindow(QtGui.QMainWindow):
                                      [ -0.567, 115.321]])
             self.log("No pre-loaded matrix available", "orange")
         self.PIX2SPF = np.matrix(self.SPF2PIX).I
-        
+
         # ==============================================
         #        prepare the 3 image displays
         # ==============================================
-        self.update_dark()
         self.update_ROI()
         
         # --- camera image ---
@@ -657,7 +648,7 @@ class MyWindow(QtGui.QMainWindow):
         test = self.probe_ROI(kx=kx, ky=ky, ref=None, nav=nav)
         (spx, spy, spi) = locate_speckles(test.mean(axis=0), ns)
 
-        print np.round(spi, 2)
+        #print np.round(spi, 2)
         return((spx, spy))
 
     # =========================================================
@@ -673,7 +664,7 @@ class MyWindow(QtGui.QMainWindow):
     # =========================================================
     def tlock(self):
         self.target_locked = True - self.target_locked
-        print self.target_locked
+        print(self.target_locked)
         
     # =========================================================
     def refresh_img(self):
@@ -683,13 +674,24 @@ class MyWindow(QtGui.QMainWindow):
         else:
             self.pwr = 1.0
         self.imv_img.setImage(arr2im(self.data_roi.T, pwr=self.pwr,
-                                     cmap=mycmap), border=2)
+                                     vmin=0, cmap=mycmap), border=2)
             
     # =========================================================
     def refresh_dmc(self):
         self.dmc_img.setImage(arr2im(self.data_dmc.T, vmin=-0.1, vmax=0.1, 
                                      cmap=mycmap), border=2)
         
+
+    # =========================================================
+    def refresh_stats(self):
+        pt_levels = [0, 50, 75, 90, 95, 99, 100]
+        pt_values = np.percentile(self.data_roi[self.iROI > 0], pt_levels)
+        msg = "<pre>\n"
+        for ii, ptile in enumerate(pt_levels):
+            msg += "p-tile %3d = %8.2f\n" % (ptile, pt_values[ii])
+        msg += "</pre>"
+        self.lbl_ROI_info.setText(msg)
+
     # =========================================================
     def refresh_all(self):
         ''' ----------------------------------------------------------
@@ -706,7 +708,9 @@ class MyWindow(QtGui.QMainWindow):
         self.data_img = cam.get_data(False, True) #- self.bias
         self.data_roi = (self.data_img * self.ROI)[dysz:dysz+sz,dxsz:dxsz+sz]
         self.refresh_img()
-        
+
+        self.refresh_stats()
+
         self.data_dmc = dmc.get_data(False, True)
         self.refresh_dmc()
 
@@ -743,12 +747,10 @@ class MyWindow(QtGui.QMainWindow):
         - msg   : the string to log (html text)
         - color : a valid html color name (default "black"
         - crt   : a flag for carriage return (default: True)
-        
-        For now, this is just printed in the GUI window,
-        but later, this could be also added to a log-file.
         -------------------------------------------------- '''
         global myqt
         myline = "<b><font color='%s'>%s</font></b>" % (color, message)
+
         if crt:
             myline += "<br>"
         try:
@@ -758,6 +760,8 @@ class MyWindow(QtGui.QMainWindow):
             print("well, that didn't go through...")
             pass
 
+        utcnow = time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())
+        self.logfile.write("%s - %s\n" % (utcnow, message))
         # these two lines scroll the text display down
         temp = self.text_log.textCursor()
         myqt.gui_do(self.text_log.setTextCursor, temp)
@@ -776,8 +780,10 @@ class MyWindow(QtGui.QMainWindow):
                          orad = self.spB_ROI_orad.value(),
                          ori  = orientation)
 
-        #self.roibias = (self.ROI * self.bias)[dysz:dysz+sz,dxsz:dxsz+sz]
-        #self.log("ROI updated", "blue")
+        self.iROI = self.ROI[dysz:dysz+sz,dxsz:dxsz+sz]
+        self.log("ROI updated. ori=%s, irad=%2d, orad=%2d" % (
+            orientation, self.spB_ROI_irad.value(), 
+            self.spB_ROI_orad.value()), "blue")
 
 
     # =========================================================        
@@ -789,27 +795,6 @@ class MyWindow(QtGui.QMainWindow):
             self.abort_flag = True
             self.log("Abort!", "red")
 
-    # =========================================================
-    def update_dark(self):
-        ''' --------------------------------------------------
-        Callback connected to the "Dark" button.
-        -------------------------------------------------- '''
-        #self.bias = drk.get_data(False, True)
-        pass
-        '''
-        self.etime = cam_get_etime()
-        if self.etime == -1:
-            time.sleep(2)
-            self.etime = cam_get_etime()
-        if not simulation:
-            bname = home+"/conf/chuckcam_aux/bias%07d.fits" % (self.etime,)
-            self.bias = pf.getdata(bname).astype('float32')
-            #self.bias = drk.get_data(False, True)
-        else:
-            self.bias = np.zeros((ysz, xsz)).astype('float32')
-        self.log("Updated dark", "blue")
-        self.log("exp.time = %d us" % (self.etime,), "blue")
-        '''
     # =========================================================
     def close_loop(self):
         ''' --------------------------------------------------
@@ -856,9 +841,8 @@ class MyWindow(QtGui.QMainWindow):
         nsamp   = myqt.gui_call(self.spB_nsamp.value,)
         nav     = 5 # number of frames to average to find speckles
         ref0    = self.coadd_acquisitions(nav, True)               # ref. image
-        #ref0   -= self.roibias
 
-        pf.writeto(conf_dir+'reference.fits', ref0, overwrite=True)
+        #pf.writeto(conf_dir+'reference.fits', ref0, overwrite=True)
         (spx, spy, spi) = locate_speckles(ref0, self.nspk, nbit=0) # find them
 
         stats   = [] # empty list for correction amplitudes
@@ -868,6 +852,8 @@ class MyWindow(QtGui.QMainWindow):
         sky = np.array(sky)[0]
         spa = self.spi2amp(spi)
 
+        #utcnow = time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())
+        #self.logfile.write("%s - %s\n" % (utcnow, myinfo))
         print(">> ", skx, sky, spi, spa)
 
         shape = np.zeros_like(erase_map)
@@ -882,8 +868,11 @@ class MyWindow(QtGui.QMainWindow):
                                       spk_phi + np.pi)
 
             stats.append(spk_amp)
-            print("modulation=%.2f nm -> phase=%+.2f rad, ampli=%.2f nm" % 
-                  (spa[ii], spk_phi, spk_amp))
+            myinfo = "modulation=%.2f nm -> phase=%+.2f rad, ampli=%.2f nm" % (
+                spa[ii], spk_phi, spk_amp)
+            utcnow = time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())
+            self.logfile.write("%s - %s\n" % (utcnow, myinfo))
+
 
         self.add_shape_2_DM(shape * 1e-3, dmch=dmcc)
         msg = "null: ave=%.2f, std=%.2f, max=%.2f" % (np.mean(stats),

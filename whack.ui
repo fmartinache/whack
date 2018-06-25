@@ -163,7 +163,7 @@
       <x>340</x>
       <y>40</y>
       <width>400</width>
-      <height>531</height>
+      <height>471</height>
      </rect>
     </property>
    </widget>
@@ -485,6 +485,25 @@
       <width>100</width>
       <height>100</height>
      </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="lbl_ROI_info">
+    <property name="geometry">
+     <rect>
+      <x>340</x>
+      <y>540</y>
+      <width>401</width>
+      <height>191</height>
+     </rect>
+    </property>
+    <property name="frameShape">
+     <enum>QFrame::Box</enum>
+    </property>
+    <property name="lineWidth">
+     <number>3</number>
+    </property>
+    <property name="text">
+     <string/>
     </property>
    </widget>
   </widget>
