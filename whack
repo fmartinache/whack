@@ -35,8 +35,8 @@ yet. Can do recenter(), pix2spf() but haven't done the closed loop yet.
 '''
 import pdb
 from QtMain import QtMain, QApplication
-from PyQt4 import QtCore, QtGui, uic
-from PyQt4.QtCore import QThread
+from PyQt5 import QtCore, QtGui, uic
+from PyQt5.QtCore import QThread
 import threading
 
 import pyqtgraph as pg
@@ -56,10 +56,10 @@ try:
     import astropy.io.fits as pf
 except:
     import pyfits as pf
-import commands
+#import commands
 
 from scipy.fftpack import fft2
-simulation = False#
+simulation = True#False#
 
 home = os.getenv('HOME')
 conf_dir = home+'/.config/fpao/whack/'
@@ -73,9 +73,9 @@ if simulation:
     pscale = 16.7 # plate-scale in mas/pixel
     wvl = 1.6 # wavelength in microns
     from xaosim.shmlib import shm
-    cam = shm('/tmp/ircam.im.shm')
-    dmc = shm('/tmp/dmdisp4.im.shm') # probing
-    dmcc = shm('/tmp/dmdisp5.im.shm') # correction
+    cam = shm('/dev/shm/ircam.im.shm')
+    dmc = shm('/dev/shm/dmdisp4.im.shm') # probing
+    dmcc = shm('/dev/shm/dmdisp5.im.shm') # correction
 
 else:
     # ----------------------------------------------------------------------
@@ -98,8 +98,8 @@ dz         = sz/2
 
 index      = cam.get_counter()
 (ysz, xsz) = cam.get_data(False, True).shape
-dxsz       = (xsz - sz) / 2
-dysz       = (ysz - sz) / 2
+dxsz       = (xsz - sz) // 2
+dysz       = (ysz - sz) // 2
 
 xx, yy   = np.meshgrid(np.arange(xsz)-xsz/2, np.arange(ysz)-ysz/2) # img coords
 xdm, ydm = np.meshgrid(np.arange(dms)-dms/2, np.arange(dms)-dms/2) # DM  coords
@@ -246,8 +246,8 @@ class MyWindow(QtGui.QMainWindow):
         # --- plot ---
         empty_splot = 'self.gView_graph_log.plot([0,0], [0,0], pen=None, symbol="o", pxMode=False)'
         for i in range(10):
-            exec 'self.spmod%d = %s' % (i, empty_splot)
-            exec 'self.spmod%d.clear()' % (i,)
+            exec('self.spmod%d = %s' % (i, empty_splot))
+            exec('self.spmod%d.clear()' % (i,))
         #elf.scatter = self.gView_graph_log.plot([0,0], [0,0], pen=None, symbol="o")
         self.scatter = self.gView_graph_log.plot([0,0], [0,0], symbol="o", 
                                                  pen=None, pxMode=False)

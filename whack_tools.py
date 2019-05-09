@@ -3,23 +3,28 @@ import pdb
 from scipy.signal import medfilt2d as medfilt
 
 # =====================================================================
-def mkdisk((xs, ys), (x0, y0), r0):
+def mkdisk(xs_ys, x0_y0, r0):
     ''' ------------------------------------------------------
     Create a circular mask centered on (x0,y0) in an array of
     size (xs, ys) with radius r0.
     Useful for centroid algorithms.
     ------------------------------------------------------ '''
+    xs, ys = xs_ys
+    x0, y0 = x0_y0
     x,y = np.meshgrid(np.arange(xs)-x0, np.arange(ys)-y0)
     dist = np.hypot(y,x)
     mask = dist <= r0
     return mask
 
 # =====================================================================
-def mkbox((xs, ys), (x0, y0), (dx, dy)):
+def mkbox(xs_ys, x0_y0, dx_dy):
     ''' ------------------------------------------------------
     Create a box mask of lower corner (x0,y0) in an array of
     size (xs, ys), of dimensions (dx, dy).
     ------------------------------------------------------ '''
+    xs, ys = xs_ys
+    x0, y0 = x0_y0
+    dx, dy = dx_dy
     x,y = np.meshgrid(np.arange(xs), np.arange(ys))
     mask = (x >= x0) * (x < x0+dx) * (y >= y0) * (y < y0+dy)
     return mask
@@ -52,8 +57,8 @@ def find_disk_center(img, diam=100):
     while (stp > 0.5):
         xc = np.arange(x0, x1, stp, dtype=int)
         yc = np.arange(y0, y1, stp, dtype=int)
-        for i in xrange(xc.size):
-            for j in xrange(yc.size):
+        for i in range(xc.size):
+            for j in range(yc.size):
                 mydisk = np.roll(np.roll(mydisk, xc[i], 0), yc[j], 1)
                 tot_out = np.sum((mydisk) * temp)
                 val = tot_out
@@ -86,7 +91,7 @@ def find_psf_center(img, verbose=True, nbit=10):
     #signal[mfilt > bckg] = 1.0
     signal[mfilt > 0] = 1.0
 
-    for it in xrange(nbit):
+    for it in range(nbit):
         sz = sx/2/(1.0+(0.1*sx/2*it/(4*nbit)))
         x0 = np.max([int(0.5 + xc - sz), 0])
         y0 = np.max([int(0.5 + yc - sz), 0])
@@ -169,7 +174,7 @@ def track_speckle_intensity(dcube, spx, spy, xr=5.0):
     return(res)
 
 # =====================================================================
-def mkROI((ys, xs), (y0, x0), ld=4.0, irad=5.0, orad=25.0, ori="left"):
+def mkROI(ys_xs, y0_x0, ld=4.0, irad=5.0, orad=25.0, ori="left"):
     ''' ---------------------------------------
     Creates a ROI mask for speckle nulling.
 
@@ -182,6 +187,8 @@ def mkROI((ys, xs), (y0, x0), ld=4.0, irad=5.0, orad=25.0, ori="left"):
     - orad     : the outer radius (in lambda/D)
     - ori      : orientation of the ROI ("left", "right", "up", "down")
     ---------------------------------------  '''
+    ys, xs = ys_xs
+    y0, x0 = y0_x0
     xx,yy = np.meshgrid(np.arange(xs)-x0, np.arange(ys)-y0)
     dist  = np.hypot(yy, xx)
     ROI   = np.ones((ys, xs))

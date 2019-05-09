@@ -16,21 +16,34 @@ especially when we go to very fast frame rate.
 
 * start the simulation
 
-- in a python shell:
-  + >> import xaosim as xs
-  + >> instru = xs.instrument('SCExAO')
-  + >> instru.start()
-  + >> instru.atmo.stop()
+Start a simulation of SCExAO with a residual 50 nm RMS dynamic residual
+aberration. Add a static aberration with a recognizable "F" shape.
+
+In a python shell:
+
+#+BEGIN_SRC python
+  import xaosim as xs
+
+  instru = xs.instrument('SCExAO')
+  instru.start()
+  instru.atmo.update(correc=10, rms=50.0)
+
+  sz = instru.atmo.qstatic.shape[0]
+  instru.atmo.qstatic = 100.0 * xs.pupil.F_test_figure(sz, sz, 40)
+#+END_SRC
+
 - in a separate shell:
-  + python whack
+#+BEGIN_SRC sh
+  python3 whack
+#+END_SRC
 
 The first set of commands initializes a simulation of SCExAO, replicating its
 shared memory data structure and their relashionships. In the simulation, the
-camera shared memory data structure is expected at /tmp/ircam.im.shm; the DM
-channel mirror to be modulated is /tmp/dmdisp4.im.shm
+camera shared memory data structure is expected at /dev/shm/ircam.im.shm; the DM
+channel mirror to be modulated is /dev/shm/dmdisp4.im.shm
 
-The second set of commads starts the utility GUI that will eventually allow you
-to run the speckle control loop.
+The second set of commads starts the utility GUI that allows you to run the
+speckle control loop.
 
 * code content
 
@@ -127,7 +140,7 @@ functions available in the code.
 - updt_target_props(self, initialize=False)
 - updt_target_list(self, myimg)
 - tlock(self)
-
+  
 * tests
 
 ** modulation amplitude to speckle intensity: \alpha
